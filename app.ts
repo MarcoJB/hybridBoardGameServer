@@ -1,6 +1,7 @@
 import * as WebSocket from "ws";
 import {v4 as uuidv4} from 'uuid';
 import {Message} from "./Message";
+import {Client} from "./Client";
 
 const port = 3000;
 
@@ -13,24 +14,35 @@ wss.on('connection', function connection(ws: WebSocket) {
 
     ws.send(JSON.stringify(new Message("INIT", {uuid})));
 
-    clients[uuid] = ws;
+    clients[uuid] = new Client(uuid, ws);
 
     ws.on('message', (messageRaw: string) => {
         console.log("Message received.");
         console.log("Message: " + messageRaw);
 
-        const message: Message = JSON.parse(messageRaw);
+        const client = getClientBySocket(ws);
 
-        message.from = getUuidByClient(ws);
+        if (client === null) {
+            return;
+        }
+
+        const message: Message = JSON.parse(messageRaw);
+        message.from = client.uuid;
 
         if (message.to) {
-            if (clients[message.to]){
+            if (message.to === "SERVER") {
+                switch (message.type) {
+                    case "JOIN":
+                        client.channel = message.data;
+                        client.socket.send(JSON.stringify(new Message("JOINED")));
+                }
+            } else if (clients[message.to]) {
                 clients[message.to].send(JSON.stringify(message));
             }
         } else {
             for (let uuid in clients) {
-                if (clients[uuid] !== ws) {
-                    clients[uuid].send(JSON.stringify(message));
+                if (clients[uuid].channel === client.channel && clients[uuid] !== client) {
+                    clients[uuid].socket.send(JSON.stringify(message));
                 }
             }
         }
@@ -41,9 +53,11 @@ wss.on('connection', function connection(ws: WebSocket) {
     })
 });
 
-function getUuidByClient(client: WebSocket): string {
+function getClientBySocket(socket: WebSocket): Client {
     for (let uuid in clients) {
-        if (clients[uuid] == client) return uuid
+        if (clients[uuid].socket == socket) {
+            return clients[uuid];
+        }
     }
 
     return null;
