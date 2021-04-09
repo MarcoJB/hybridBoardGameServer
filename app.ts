@@ -37,7 +37,7 @@ wss.on('connection', function connection(ws: WebSocket) {
                         client.socket.send(JSON.stringify(new Message("JOINED")));
                 }
             } else if (clients[message.to]) {
-                clients[message.to].send(JSON.stringify(message));
+                clients[message.to].socket.send(JSON.stringify(message));
             }
         } else {
             for (let uuid in clients) {
