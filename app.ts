@@ -35,6 +35,13 @@ wss.on('connection', function connection(ws: WebSocket) {
                     case "JOIN":
                         client.channel = message.data;
                         client.socket.send(JSON.stringify(new Message("JOINED")));
+                        break;
+                    case "UUID":
+                        client.uuid = message.data;
+                        clients[client.uuid] = client;
+                        delete clients[message.from];
+                        client.socket.send(JSON.stringify(new Message("INIT", {uuid: client.uuid})));
+                        break;
                 }
             } else if (clients[message.to]) {
                 clients[message.to].socket.send(JSON.stringify(message));
